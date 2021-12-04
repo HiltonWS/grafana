@@ -1,3 +1,82 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grafana-storage-volume
+  labels:
+    directory: grafana-storage
+spec:
+  capacity:
+    storage: 500Mi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local
+  local:
+    path: /mnt/sda/grafana/storage/
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - master-rspi4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-storage-claim
+spec:
+  storageClassName: local
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+  selector:
+    matchLabels:
+      directory: grafana-storage
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: grafana-datasources-volume
+  labels:
+    directory: grafana-datasources
+spec:
+  capacity:
+    storage: 500Mi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: local
+  local:
+    path: /mnt/sda/grafana/etc/
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - master-rspi4
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-datasources-claim
+spec:
+  storageClassName: local
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+  selector:
+    matchLabels:
+      directory: grafana-datasources
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,7 +95,7 @@ spec:
     spec:
       containers:
       - name: grafana
-        image: grafana/grafana:latest
+        image: grafana/grafana:main
         ports:
         - name: grafana
           containerPort: 3000
@@ -29,14 +108,14 @@ spec:
             cpu: "500m"
         volumeMounts:
           - mountPath: /var/lib/grafana
-            name: grafana-storage
+            name: grafana-storage-volume
           - mountPath: /etc/grafana/provisioning/datasources
-            name: grafana-datasources
+            name: grafana-datasources-volume
             readOnly: false
       volumes:
-        - name: grafana-storage
-          emptyDir: {}
-        - name: grafana-datasources
-          configMap:
-              defaultMode: 420
-              name: grafana-datasources
+        - name: grafana-storage-volume
+          persistentVolumeClaim:
+            claimName: grafana-storage-claim
+        - name: grafana-datasources-volume
+          persistentVolumeClaim:
+            claimName: grafana-datasources-claim
